@@ -12,28 +12,17 @@ class NETWORK(nn.Module):
         num_encoder_layers=1,
     ):
         super().__init__()
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=latent_dim, nhead=nhead, dim_feedforward=hidden_dim)
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, latent_dim),
-            nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
-        )
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=nhead, dim_feedforward=hidden_dim)
+        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
             
-
-        self.shared_decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
-            nn.Softplus(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.Softplus(),
-        )
-
         self.derivatives_dim = input_dim
         self.probabilities_dim = 4*input_dim//2
 
         self.derivative_decoder = nn.Sequential(
-            nn.Linear(hidden_dim, self.derivatives_dim), #3 output kinetic parameters for each gene
+            nn.Linear(input_dim, self.derivatives_dim), #3 output kinetic parameters for each gene
         )
 
-        self.probabilities_decoder = nn.Linear(hidden_dim, self.probabilities_dim) #4 output probabilities for each gene
+        self.probabilities_decoder = nn.Linear(input_dim, self.probabilities_dim) #4 output probabilities for each gene
 
         self.v_u = None
         self.v_s = None
@@ -48,12 +37,11 @@ class NETWORK(nn.Module):
         x = x.unsqueeze(1)  # Add a sequence dimension
         z = self.encoder(x)
         z = z.squeeze(1)  # Remove the sequence dimension
-        z_shared = self.shared_decoder(z)
-        self.derivatives = self.derivative_decoder(z_shared)
+        self.derivatives = self.derivative_decoder(z)
         self.v_u_pos, self.v_s_pos = torch.split(self.derivatives, self.derivatives_dim // 2, dim=1)        
         v_u_neg = -1 * self.v_u_pos
         v_s_neg = -1 * self.v_s_pos
-        p_sign = self.probabilities_decoder(z_shared)
+        p_sign = self.probabilities_decoder(z)
         p_sign = p_sign.view(-1, self.probabilities_dim//4, 4)
         p_sign = F.softmax(p_sign, dim=-1)
         self.pp = p_sign[:,:,0]

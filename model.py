@@ -12,11 +12,15 @@ class NETWORK(nn.Module):
         num_encoder_layers=1,
     ):
         super().__init__()
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=nhead, dim_feedforward=hidden_dim)
-        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=latent_dim, nhead=nhead, dim_feedforward=hidden_dim)
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, latent_dim),
+            nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
+        )
+            
 
         self.shared_decoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
+            nn.Linear(latent_dim, hidden_dim),
             nn.Softplus(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Softplus(),
@@ -130,8 +134,7 @@ class NETWORK(nn.Module):
 
             weighted_heuristic_loss = lambda1 * heuristic_loss
             weighted_discrepancy_loss = lambda2 * discrepancy_loss
-            weighted_discrepancy_loss = lambda2 * discrepancy_loss
-            total_loss = weighted_heuristic_loss + weighted_discrepancy_loss
+
             total_loss = weighted_heuristic_loss + discrepancy_loss
 
             losses_dic = {

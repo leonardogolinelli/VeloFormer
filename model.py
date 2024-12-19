@@ -8,19 +8,15 @@ class NETWORK(nn.Module):
         input_dim,
         latent_dim, 
         hidden_dim,
+        nhead=1,
+        num_encoder_layers=1,
     ):
         super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.Softplus(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.Softplus(),
-            nn.Linear(hidden_dim, latent_dim),
-            nn.Softplus(),
-        )
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=nhead, dim_feedforward=hidden_dim)
+        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
 
         self.shared_decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.Softplus(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Softplus(),
@@ -45,7 +41,9 @@ class NETWORK(nn.Module):
         self.np = None
 
     def forward(self, x):
+        x = x.unsqueeze(1)  # Add a sequence dimension
         z = self.encoder(x)
+        z = z.squeeze(1)  # Remove the sequence dimension
         z_shared = self.shared_decoder(z)
         self.derivatives = self.derivative_decoder(z_shared)
         self.v_u_pos, self.v_s_pos = torch.split(self.derivatives, self.derivatives_dim // 2, dim=1)        
@@ -58,7 +56,7 @@ class NETWORK(nn.Module):
         self.nn = p_sign[:,:,1]
         self.pn = p_sign[:,:,2]
         self.np = p_sign[:,:,3]
-        unspliced, spliced = torch.split(x, x.size(1) // 2, dim=1)
+        unspliced, spliced = torch.split(x.squeeze(1), x.size(2) // 2, dim=1)
 
         self.v_u = self.v_u_pos * self.pp + v_u_neg * self.nn + self.v_u_pos * self.pn + v_u_neg * self.np
         self.v_s = self.v_s_pos * self.pp + v_s_neg * self.nn + v_s_neg * self.pn + self.v_s_pos * self.np
@@ -69,7 +67,7 @@ class NETWORK(nn.Module):
         self.prediction = torch.cat([unspliced_pred, spliced_pred], dim=1)
 
         self.out_dic = {
-            "x" : x,
+            "x" : x.squeeze(1),
             "pred" : self.prediction,
             "v_u" : self.v_u,
             "v_s" : self.v_s,
@@ -132,7 +130,8 @@ class NETWORK(nn.Module):
 
             weighted_heuristic_loss = lambda1 * heuristic_loss
             weighted_discrepancy_loss = lambda2 * discrepancy_loss
-
+            weighted_discrepancy_loss = lambda2 * discrepancy_loss
+            total_loss = weighted_heuristic_loss + weighted_discrepancy_loss
             total_loss = weighted_heuristic_loss + discrepancy_loss
 
             losses_dic = {

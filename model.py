@@ -15,7 +15,7 @@ class NETWORK(nn.Module):
         super().__init__()
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=nhead, dim_feedforward=hidden_dim)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
-            
+        self.linear_resize = nn.Linear(emb_dim, 1)
         self.derivatives_dim = input_dim
         self.probabilities_dim = 4*input_dim//2
 
@@ -36,16 +36,18 @@ class NETWORK(nn.Module):
 
     def forward(self, tokens, data):
         #print(f"x shape in model: {tokens.shape}")
-        z = self.encoder(tokens)
+        z_gene_embeddings = self.encoder(tokens)
         #print(f"z shape in model: {z.shape}")
-        z = z.mean(dim=2)
+        #z = z.mean(dim=2)
+        z_cell_embeddings = self.linear_resize(z_gene_embeddings).squeeze(2)
+        #z_cell_embeddings = z_gene_embeddings.view(z_gene_embeddings.shape[0], -1)  # Shape: (batch_size, seq_length * emb_dim)
         #print(f"z shape in model after mean: {z.shape}")
-        self.derivatives = self.derivative_decoder(z)
+        self.derivatives = self.derivative_decoder(z_cell_embeddings)
         #print(f"derivatives shape in model: {self.derivatives.shape}")
         self.v_u_pos, self.v_s_pos = torch.split(self.derivatives, self.derivatives_dim // 2, dim=1)        
         v_u_neg = -1 * self.v_u_pos
         v_s_neg = -1 * self.v_s_pos
-        p_sign = self.probabilities_decoder(z)
+        p_sign = self.probabilities_decoder(z_cell_embeddings)
         p_sign = p_sign.view(-1, self.probabilities_dim//4, 4)
         p_sign = F.softmax(p_sign, dim=-1)
         self.pp = p_sign[:,:,0]
@@ -74,7 +76,9 @@ class NETWORK(nn.Module):
             "pp" : self.pp,
             "nn" : self.nn,
             "pn" : self.pn,
-            "np" : self.np
+            "np" : self.np,
+            "z_gene_embeddings" : z_gene_embeddings,
+            "z_cell_embeddings" : z_cell_embeddings
 
         }
 

@@ -81,10 +81,49 @@ class BinnedExpressionDataset(Dataset):
         
         return tokens, combined, idx
     
+class BinnedExpressionDatasetGeneEmbs(Dataset):
+    def __init__(self, adata, num_genes, embedding_dim, num_bins):
+        self.data = adata
+        self.num_genes = num_genes
+        self.embedding_dim = embedding_dim
+        self.num_bins = num_bins
+        self.token_embeddings = nn.Embedding(2 * num_genes, embedding_dim)  # Separate tokens for unspliced and spliced
+        self.gene_embeddings = nn.Embedding(num_genes, embedding_dim)       # Shared gene embeddings
+
+    def bin_expression_values(self, expression_values):
+        binned_values = torch.floor(expression_values / (torch.max(expression_values) / self.num_bins)).clamp(0, self.num_bins - 1)
+        return binned_values.to(dtype=torch.long)
+
+    def __len__(self):
+        return self.data.n_obs
+
+    def __getitem__(self, idx):
+        unspliced = torch.tensor(self.data.layers["Mu"][idx], dtype=torch.float32)
+        spliced = torch.tensor(self.data.layers["Ms"][idx], dtype=torch.float32)
+        combined = torch.cat([unspliced, spliced])
+        
+        # Bin the expression values
+        binned_indices = self.bin_expression_values(combined)
+        
+        # Generate token embeddings
+        token_embeddings = self.token_embeddings(binned_indices)
+        
+        # Create gene embeddings
+        gene_indices = torch.arange(self.num_genes)  # Index for genes
+        gene_indices = torch.cat([gene_indices, gene_indices])  # Duplicate for spliced and unspliced
+        gene_embeddings = self.gene_embeddings(gene_indices)
+        
+        # Combine embeddings (e.g., concatenation or addition)
+        combined_embeddings = token_embeddings + gene_embeddings
+        
+        return combined_embeddings, combined, idx
+
 
 def setup_dataloaders_ranked(adata, batch_size, train_size=0.8, split_data=True,
                       num_genes=2000, embedding_dim=128):
     custom_dataset = RankedExpressionDataset(adata, num_genes, embedding_dim)
+    #custom_dataset = BinnedExpressionDatasetGeneEmbs(adata, num_genes, embedding_dim)
+
     if split_data:
         num_samples = len(custom_dataset)
         indices = np.random.permutation(num_samples)

@@ -4,3 +4,5 @@ __pycache__/
 data/*
 final_model.pth
 plots/*
+gastrulation_erythroid_common_smoothing.h5ad
+gastrulation_erythroid.h5ad

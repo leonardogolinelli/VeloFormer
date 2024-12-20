@@ -3,3 +3,4 @@ pancreas_goodresult.h5ad
 __pycache__/
 data/*
 final_model.pth
+plots/*

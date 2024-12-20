@@ -8,11 +8,12 @@ class NETWORK(nn.Module):
         input_dim,
         latent_dim, 
         hidden_dim,
+        emb_dim,
         nhead=1,
         num_encoder_layers=1,
     ):
         super().__init__()
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=nhead, dim_feedforward=hidden_dim)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=nhead, dim_feedforward=hidden_dim)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
             
         self.derivatives_dim = input_dim
@@ -33,11 +34,14 @@ class NETWORK(nn.Module):
         self.pn = None
         self.np = None
 
-    def forward(self, x):
-        x = x.unsqueeze(1)  # Add a sequence dimension
-        z = self.encoder(x)
-        z = z.squeeze(1)  # Remove the sequence dimension
+    def forward(self, tokens, data):
+        #print(f"x shape in model: {tokens.shape}")
+        z = self.encoder(tokens)
+        #print(f"z shape in model: {z.shape}")
+        z = z.mean(dim=2)
+        #print(f"z shape in model after mean: {z.shape}")
         self.derivatives = self.derivative_decoder(z)
+        #print(f"derivatives shape in model: {self.derivatives.shape}")
         self.v_u_pos, self.v_s_pos = torch.split(self.derivatives, self.derivatives_dim // 2, dim=1)        
         v_u_neg = -1 * self.v_u_pos
         v_s_neg = -1 * self.v_s_pos
@@ -48,7 +52,8 @@ class NETWORK(nn.Module):
         self.nn = p_sign[:,:,1]
         self.pn = p_sign[:,:,2]
         self.np = p_sign[:,:,3]
-        unspliced, spliced = torch.split(x.squeeze(1), x.size(2) // 2, dim=1)
+        #print(f"data shape in model: {data.shape}")
+        unspliced, spliced = torch.split(data, data.size(1) // 2, dim=1)
 
         self.v_u = self.v_u_pos * self.pp + v_u_neg * self.nn + self.v_u_pos * self.pn + v_u_neg * self.np
         self.v_s = self.v_s_pos * self.pp + v_s_neg * self.nn + v_s_neg * self.pn + self.v_s_pos * self.np
@@ -59,7 +64,8 @@ class NETWORK(nn.Module):
         self.prediction = torch.cat([unspliced_pred, spliced_pred], dim=1)
 
         self.out_dic = {
-            "x" : x.squeeze(1),
+            "tokens": tokens,
+            "data" : data.squeeze(1),
             "pred" : self.prediction,
             "v_u" : self.v_u,
             "v_s" : self.v_s,
@@ -85,7 +91,7 @@ class NETWORK(nn.Module):
             device,
             K):
 
-            x = out_dic["x"]
+            x = out_dic["data"]
             prediction_nn = out_dic["pred"]
 
             reference_data = x #fetch the GE data of the samples in the batch 

@@ -6,6 +6,8 @@ import torch
 import numpy as np
 from model import NETWORK
 import pickle
+import pandas as pd
+import seaborn as sns
 
 
 
@@ -210,3 +212,14 @@ def plot_phase_plane(adata, gene_name, dataset, K, u_scale=.01, s_scale=0.01, al
         plt.close()
 
     plt.show()
+
+def color_keys(adata, cell_type_key):
+    adata.obs[cell_type_key] = [str(cat) for cat in list(adata.obs[cell_type_key])]
+    adata.obs[cell_type_key] = pd.Series(adata.obs[cell_type_key], dtype="category")
+    unique_categories = adata.obs[cell_type_key].cat.categories
+    rgb_colors = sns.color_palette("tab20", len(unique_categories))
+    hex_colors = ['#%02x%02x%02x' % (int(r*255), int(g*255), int(b*255)) for r, g, b in rgb_colors]
+    adata.uns[f"{cell_type_key}_colors"] = hex_colors
+    adata.layers['counts_unspliced'] = adata.layers["unspliced"].copy()
+    adata.layers['counts_spliced'] = adata.layers["spliced"].copy()
+    return adata

@@ -6,3 +6,13 @@ final_model.pth
 plots/*
 gastrulation_erythroid_common_smoothing.h5ad
 gastrulation_erythroid.h5ad
+preprocessing_old.ipynb
+gastr_common_geodesic/gastrulation_erythroid_common_geodesic.h5ad
+gastr_common_geodesic/model.pth
+gastr_common_geodesic/plots/*
+gastr_common_smoothing/model.pth
+gastr_common_smoothing/plots/*
+gastr_separate_smoothing/model_1layer.pth
+gastr_separate_smoothing/model_2layers_edit_loss.pth
+gastr_separate_smoothing/model_2layers.pth
+gastr_separate_smoothing/plots/*

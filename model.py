@@ -9,77 +9,72 @@ class NETWORK(nn.Module):
         latent_dim, 
         hidden_dim,
         emb_dim,
+        num_genes,
+        num_bins,
         nhead=1,
         num_encoder_layers=1,
     ):
         super().__init__()
+        self.embeddings = nn.Embedding(2 * num_genes, emb_dim)  # Move embedding here
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=emb_dim, nhead=nhead, dim_feedforward=hidden_dim)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_encoder_layers)
-        self.linear_resize = nn.Linear(emb_dim, 1)
+        self.input_dim = input_dim
         self.derivatives_dim = input_dim
         self.probabilities_dim = 4*input_dim//2
 
-        self.derivative_decoder = nn.Sequential(
-            nn.Linear(input_dim, self.derivatives_dim), #3 output kinetic parameters for each gene
+        self.shared_decoder = nn.Sequential(
+            nn.Linear(emb_dim, emb_dim),
+            nn.Softplus(),
+            nn.Linear(emb_dim, 1),
+            nn.Softplus(),
         )
 
-        self.probabilities_decoder = nn.Linear(input_dim, self.probabilities_dim) #4 output probabilities for each gene
+        self.derivative_decoder = nn.Sequential(
+            nn.Linear(input_dim,input_dim)
+        )
 
-        self.v_u = None
-        self.v_s = None
-        self.v_u_pos = None
-        self.v_s_pos = None
-        self.pp = None
-        self.nn = None
-        self.pn = None
-        self.np = None
+        self.probabilities_decoder = nn.Sequential(
+            nn.Linear(input_dim, 4*input_dim//2)
+        )
 
-    def forward(self, tokens, data):
-        #print(f"x shape in model: {tokens.shape}")
-        z_gene_embeddings = self.encoder(tokens)
-        #print(f"z shape in model: {z.shape}")
-        #z = z.mean(dim=2)
-        z_cell_embeddings = self.linear_resize(z_gene_embeddings).squeeze(2)
-        #z_cell_embeddings = z_gene_embeddings.view(z_gene_embeddings.shape[0], -1)  # Shape: (batch_size, seq_length * emb_dim)
-        #print(f"z shape in model after mean: {z.shape}")
-        self.derivatives = self.derivative_decoder(z_cell_embeddings)
-        #print(f"derivatives shape in model: {self.derivatives.shape}")
-        self.v_u_pos, self.v_s_pos = torch.split(self.derivatives, self.derivatives_dim // 2, dim=1)        
-        v_u_neg = -1 * self.v_u_pos
-        v_s_neg = -1 * self.v_s_pos
-        p_sign = self.probabilities_decoder(z_cell_embeddings)
-        p_sign = p_sign.view(-1, self.probabilities_dim//4, 4)
+    def forward(self, binned_indices, data):
+        tokens = self.embeddings(binned_indices)  # Use embeddings within the model
+        gene_embeddings = self.encoder(tokens)
+        cell_embeddings = self.shared_decoder(gene_embeddings).squeeze(-1)
+        derivatives = self.derivative_decoder(cell_embeddings)
+        v_u_pos, v_s_pos = torch.split(derivatives, self.derivatives_dim // 2, dim=1)   
+        v_u_neg = -1 * v_u_pos
+        v_s_neg = -1 * v_s_pos
+        batch_size = cell_embeddings.shape[0]
+        p_sign = self.probabilities_decoder(cell_embeddings).reshape(batch_size, self.input_dim//2, 4)
         p_sign = F.softmax(p_sign, dim=-1)
         self.pp = p_sign[:,:,0]
         self.nn = p_sign[:,:,1]
         self.pn = p_sign[:,:,2]
         self.np = p_sign[:,:,3]
-        #print(f"data shape in model: {data.shape}")
+        v_u = v_u_pos * self.pp + v_u_neg * self.nn + v_u_pos * self.pn + v_u_neg * self.np
+        v_s = v_s_pos * self.pp + v_s_neg * self.nn + v_s_neg * self.pn + v_s_pos * self.np
+
         unspliced, spliced = torch.split(data, data.size(1) // 2, dim=1)
+        unspliced_pred = unspliced + v_u
+        spliced_pred = spliced + v_s
 
-        self.v_u = self.v_u_pos * self.pp + v_u_neg * self.nn + self.v_u_pos * self.pn + v_u_neg * self.np
-        self.v_s = self.v_s_pos * self.pp + v_s_neg * self.nn + v_s_neg * self.pn + self.v_s_pos * self.np
-
-        unspliced_pred = unspliced + self.v_u
-        spliced_pred = spliced + self.v_s
-
-        self.prediction = torch.cat([unspliced_pred, spliced_pred], dim=1)
+        prediction = torch.cat([unspliced_pred, spliced_pred], dim=1)
 
         self.out_dic = {
             "tokens": tokens,
             "data" : data.squeeze(1),
-            "pred" : self.prediction,
-            "v_u" : self.v_u,
-            "v_s" : self.v_s,
-            "v_u_pos" : self.v_u_pos,
-            "v_s_pos" : self.v_s_pos,
+            "pred" : prediction,
+            "v_u" : v_u,
+            "v_s" : v_s,
+            "v_u_pos" : v_u_pos,
+            "v_s_pos" : v_s_pos,
             "pp" : self.pp,
             "nn" : self.nn,
             "pn" : self.pn,
             "np" : self.np,
-            "z_gene_embeddings" : z_gene_embeddings,
-            "z_cell_embeddings" : z_cell_embeddings
-
+            "gene_embeddings" : gene_embeddings,
+            "cell_embeddings" : cell_embeddings,
         }
 
         return self.out_dic
@@ -96,7 +91,7 @@ class NETWORK(nn.Module):
             K):
 
             x = out_dic["data"]
-            prediction_nn = out_dic["pred"]
+            #prediction_nn = out_dic["pred"]
 
             reference_data = x #fetch the GE data of the samples in the batch 
             neighbor_indices = adata.uns["indices"][batch_indices,1:K] #fetch the nearest neighbors   
@@ -104,7 +99,8 @@ class NETWORK(nn.Module):
             neighbor_data_s = torch.from_numpy(adata.layers["Ms"][neighbor_indices]).to(device)
             neighbor_data = torch.cat([neighbor_data_u, neighbor_data_s], dim=2) #fetch the GE data of the neighbors for each sample in the batch
 
-            model_prediction_vector = prediction_nn - reference_data #compute the difference vector of the model prediction vs the input samples
+            #model_prediction_vector = prediction_nn - reference_data #compute the difference vector of the model prediction vs the input samples
+            model_prediction_vector = torch.cat([out_dic["v_u"], out_dic["v_s"]], dim=1)
             neighbor_prediction_vectors = neighbor_data - reference_data.unsqueeze(1) #compute the difference vector of the neighbor data vs the input samples
 
             # Normalize the vectors cell-wise

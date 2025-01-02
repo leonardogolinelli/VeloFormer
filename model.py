@@ -61,6 +61,23 @@ class NETWORK(nn.Module):
 
         prediction = torch.cat([unspliced_pred, spliced_pred], dim=1)
 
+        with torch.no_grad():
+            v_u_max = torch.where(
+                self.pp >= torch.max(torch.max(self.nn, self.pn), self.np), v_u_pos,
+                torch.where(torch.max(self.nn, self.pn) >= self.np, v_u_neg,
+                torch.where(self.pn >= self.np, v_u_pos, v_u_neg))
+            )
+
+            v_s_max = torch.where(
+                self.pp >= torch.max(torch.max(self.nn, self.pn), self.np), v_s_pos,
+                torch.where(torch.max(self.nn, self.pn) >= self.np, v_s_neg,
+                torch.where(self.pn >= self.np, v_s_neg, v_s_pos))
+            )
+
+            # If positive probability is equal to negative probability, use expected value
+            v_u_max = torch.where(self.pp == self.nn, v_u, v_u_max)
+            v_s_max = torch.where(self.pp == self.nn, v_s, v_s_max)
+
         self.out_dic = {
             "tokens": tokens,
             "data" : data.squeeze(1),
@@ -69,6 +86,8 @@ class NETWORK(nn.Module):
             "v_s" : v_s,
             "v_u_pos" : v_u_pos,
             "v_s_pos" : v_s_pos,
+            "v_u_max" : v_u_max,
+            "v_s_max" : v_s_max,
             "pp" : self.pp,
             "nn" : self.nn,
             "pn" : self.pn,

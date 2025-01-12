@@ -38,3 +38,4 @@ CITE-seq/GSE100866_PBMC_vs_flow_10X-RNA_umi.csv
 neurips/GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad
 pancreas_common_smoothing_minmax/pancreas_minmax.h5ad
 pancreas_common_smoothing_minmax/plots/*
+plots_presentation/*

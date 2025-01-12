@@ -32,3 +32,9 @@ gastr_full_separate_smoothing/model.pth
 gastr_full_separate_smoothing/plots/*
 gastr_separate_smoothing/erythroid_pancreas.h5ad
 gastr_separate_smoothing/model_minmax.pth
+CITE-seq/GSE100866_PBMC_vs_flow_10X-ADT_clr-transformed.csv
+CITE-seq/GSE100866_PBMC_vs_flow_10X-ADT_umi.csv
+CITE-seq/GSE100866_PBMC_vs_flow_10X-RNA_umi.csv
+neurips/GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad
+pancreas_common_smoothing_minmax/pancreas_minmax.h5ad
+pancreas_common_smoothing_minmax/plots/*

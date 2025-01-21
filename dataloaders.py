@@ -244,3 +244,55 @@ def setup_dataloaders_binning_simpler(adata, batch_size, train_size=0.8, split_d
     full_data_loader = DataLoader(custom_dataset, batch_size=batch_size, shuffle=False)  # Simplified DataLoader
 
     return train_loader, test_loader, full_data_loader
+
+
+class SubsetBinnedExpressionDataset(Dataset):
+    def __init__(self, adata, bin_ranges):
+        """
+        Initialize the dataset with the smaller anndata and precomputed bin ranges.
+        
+        Parameters:
+        - adata: AnnData object containing the smaller dataset.
+        - bin_ranges: Precomputed bin ranges for each gene from the original dataset.
+        """
+        self.data = adata
+        self.bin_ranges = torch.tensor(bin_ranges, dtype=torch.float32)  # Shape: (num_genes,)
+
+    def map_to_bins(self, expression_values):
+        """
+        Map gene expression values into their respective bins based on precomputed bin ranges.
+        """
+        # Divide by bin ranges and floor to assign bin indices
+        binned_values = torch.floor(expression_values / self.bin_ranges).clamp(0, len(self.bin_ranges) - 1)
+        return binned_values.to(dtype=torch.long)
+
+    def __len__(self):
+        return self.data.n_obs
+
+    def __getitem__(self, idx):
+        # Get unspliced and spliced layers as tensors
+        unspliced = torch.tensor(self.data.layers["pred_u"][idx], dtype=torch.float32)
+        spliced = torch.tensor(self.data.layers["pred_s"][idx], dtype=torch.float32)
+        combined = torch.cat([unspliced, spliced])
+        
+        # Map expression values to bins using precomputed bin ranges
+        binned_indices = self.map_to_bins(combined)
+        
+        return binned_indices, combined, idx
+
+
+def setup_dataloaders_for_subset(adata, bin_ranges, batch_size):
+    """
+    Create a DataLoader for the subset dataset using precomputed bin ranges.
+    
+    Parameters:
+    - adata: AnnData object containing the smaller dataset.
+    - bin_ranges: Precomputed bin ranges for the original dataset.
+    - batch_size: Batch size for the DataLoader.
+    
+    Returns:
+    - subset_loader: DataLoader for the smaller dataset.
+    """
+    subset_dataset = SubsetBinnedExpressionDataset(adata, bin_ranges)
+    subset_loader = DataLoader(subset_dataset, batch_size=batch_size, shuffle=True)
+    return subset_loader

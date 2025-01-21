@@ -39,3 +39,17 @@ neurips/GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad
 pancreas_common_smoothing_minmax/pancreas_minmax.h5ad
 pancreas_common_smoothing_minmax/plots/*
 plots_presentation/*
+linear_probed_umap.png
+veloformer_hba-x_celltypes.png
+veloformer_hba-x_samples.png
+pancreas-gastr->pancr_transfer_base_smooth.h5ad
+gastr->pancreas-linear_probing/model_10epochs.pth
+gastr->pancreas-linear_probing/pancreas-gastr->pancr_transfer_200_smooth.h5ad
+gastr->pancreas-linear_probing/pancreas-gastr->pancr_transfer_isomap_latest.h5ad
+gastr->pancreas-zero_shot/model_10epochs.pth
+gastr->pancreas-zero_shot/pancreas-gastr->pancr_transfer_200_smooth.h5ad
+gastr->pancreas-zero_shot/pancreas-gastr->pancr_transfer_isomap_latest.h5ad
+gastr_full_separate_smoothing/final_adata_10epochs.h5ad
+gastr_full_separate_smoothing/gastrulation_velocity_10epochs_compute_umap.h5ad
+gastr_full_separate_smoothing/gastrulation_velocity_10epochs.h5ad
+gastr_full_separate_smoothing/model_10epochs.pth

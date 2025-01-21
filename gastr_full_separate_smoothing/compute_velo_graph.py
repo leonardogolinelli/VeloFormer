@@ -2,7 +2,7 @@ import scanpy as sc
 import scvelo as scv
 import matplotlib.pyplot as plt
 
-adata = sc.read_h5ad("gastrulation_velocity.h5ad")
+adata = sc.read_h5ad("final_adata_10epochs.h5ad")
 
 print("Computing neighbors")
 sc.pp.neighbors(adata)
@@ -19,4 +19,4 @@ for key in keys:
     sc.pl.umap(adata, color=key)
     plt.savefig(f"plots/gastrulation_velocity_{key}.png", bbox_inches="tight")
 print("Saving anndata with velocity graph")
-adata.write("gastrulation_velocity.h5ad")
+adata.write("gastrulation_velocity_10epochs.h5ad")

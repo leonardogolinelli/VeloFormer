@@ -17,9 +17,10 @@ random_indices = np.random.choice(n_obs, n_sample, replace=False)
 # Subset the AnnData object
 adata_half = adata[random_indices].copy()
 
-
+#adata.obsm["MuMs"] = np.concatenate([adata.layers["Mu"], adata.layers["Ms"]], axis=1)
+adata.obsm["Ms"] = adata.layers["Ms"]
 print("Computing neighbors")
-sc.pp.neighbors(adata)
+sc.pp.neighbors(adata, use_rep="Ms")
 sc.tl.umap(adata)
 print("Reversing velocity")
 adata.layers["velocity_u"] *= -1
@@ -32,9 +33,9 @@ keys = ["celltype", "velocity_confidence", "velocity_length"]
 for key in keys:
     print(f"Plotting {key}")
     sc.pl.umap(adata, color=key)
-    #plt.savefig(f"plots/gastrulation_velocity_{key}.png", bbox_inches="tight")
-    scv.pl.velocity_embedding_stream(adata, f"plots/stream_gastrulation_velocity_{key}.png", color=key)
-    plt.savefig(f"plots/stream_gastrulation_velocity_{key}.png", bbox_inches="tight")
+    plt.savefig(f"plots/MuMs_gastrulation_velocity_{key}.png", bbox_inches="tight")
+    scv.pl.velocity_embedding_stream(adata, color=key)
+    plt.savefig(f"plots/MuMs_stream_gastrulation_velocity_{key}.png", bbox_inches="tight")
 
 print("Saving anndata with velocity graph")
 adata.write("gastrulation_velocity_10epochs_compute_umap.h5ad")

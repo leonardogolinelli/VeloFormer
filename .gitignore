@@ -53,3 +53,4 @@ gastr_full_separate_smoothing/final_adata_10epochs.h5ad
 gastr_full_separate_smoothing/gastrulation_velocity_10epochs_compute_umap.h5ad
 gastr_full_separate_smoothing/gastrulation_velocity_10epochs.h5ad
 gastr_full_separate_smoothing/model_10epochs.pth
+simulation_pics/*

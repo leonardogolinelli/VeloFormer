@@ -114,8 +114,11 @@ class NETWORK(nn.Module):
 
             reference_data = x #fetch the GE data of the samples in the batch 
             neighbor_indices = adata.uns["indices"][batch_indices,1:K] #fetch the nearest neighbors   
-            neighbor_data_u = torch.from_numpy(adata.layers["Mu"][neighbor_indices]).to(device) 
-            neighbor_data_s = torch.from_numpy(adata.layers["Ms"][neighbor_indices]).to(device)
+            #neighbor_data_u = torch.from_numpy(adata.layers["Mu"][neighbor_indices]).to(device) 
+            #neighbor_data_s = torch.from_numpy(adata.layers["Ms"][neighbor_indices]).to(device)
+            neighbor_data_u = torch.from_numpy(adata.layers["unspliced"].toarray()[neighbor_indices]).to(device) 
+            neighbor_data_s = torch.from_numpy(adata.layers["spliced"].toarray()[neighbor_indices]).to(device)
+
             neighbor_data = torch.cat([neighbor_data_u, neighbor_data_s], dim=2) #fetch the GE data of the neighbors for each sample in the batch
 
             #model_prediction_vector = prediction_nn - reference_data #compute the difference vector of the model prediction vs the input samples

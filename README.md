@@ -1,3 +1,3 @@
-Model under active development.
+Model under active development (personal project).
 
-For information, collaboration, or usage of related code please contact me at leogolinelli@gmail.com
+For information, collaborations, or usage of related code please contact me at leogolinelli@gmail.com
